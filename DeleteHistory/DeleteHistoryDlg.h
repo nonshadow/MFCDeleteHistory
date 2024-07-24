@@ -4,6 +4,9 @@
 
 #pragma once
 #include <string>
+#include <queue>
+#include <io.h>
+#include <direct.h>
 
 // CDeleteHistoryDlg 对话框
 class CDeleteHistoryDlg : public CDialogEx
@@ -34,13 +37,31 @@ public:
 	CString m_FilePath;				// 文件目录文本
 	std::string strPath;			// 文件目录文本 string格式
 	CString m_LogTxt;				// 运行日志文本
+	CTime timeStop;					//截至日期
+	long long dTime = 0;			// 日期时间戳
+	int retFlag = 0;				// 线程状态标志
+	UINT fileNum = 0;				// 检索到文件个数
+	UINT delNum = 0;					// 清理计数
+
 	CDateTimeCtrl m_DateEndCtrl;	// 日期时间控件
 	CButton m_BtnStartCtrl;			// 开始按钮控件 
 	CProgressCtrl m_ProgRunCtrl;	// 运行进度条控件
+	CEdit m_LogCtrl;				// 运行日志控件
 public:
-	//CString 字符串 转 string 字符串
+	// CString 字符串 转 string 字符串
 	std::string CStringToString(CString _inPath);
-	void OutPutLog(CString _log);
-
-	CEdit m_LogCtrl;
+	// 日志打印 bool _Flag = TRUE;			// 日志输出判断标志，true 保留，false 循环清除
+	void OutputLog(CString _log, bool _flag = true);
+	// 获取目标文件个数
+	int GetFileNum(std::string _inPath, long long _timeInfo);
+	// 删除目标文件及空文件夹
+	void DeleteFolder(std::string _inPath, long long _timeInfo);
+	
+	// 静态线程函数
+	static DWORD WINAPI StartFunc(void* arg);
+	// 生成的消息映射函数
+	afx_msg void OnBnClickedBtnOpenfile();
+	afx_msg void OnBnClickedBtnStart();
+	//afx_msg void OnDtnDatetimechangeDateEnd(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnDtnCloseupDateEnd(NMHDR* pNMHDR, LRESULT* pResult);
 };

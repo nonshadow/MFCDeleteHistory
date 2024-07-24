@@ -7,7 +7,6 @@
 #define IDC_BTN_OPENFILE                1000
 #define IDC_EDIT_FILEPATH               1001
 #define IDC_STATIC_FILEPATH             1002
-#define IDC_PROGRESS1                   1003
 #define IDC_PROG_RUN                    1003
 #define IDC_EDIT_LOG                    1004
 #define IDC_BTN_START                   1005
