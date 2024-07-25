@@ -12,7 +12,7 @@
 #define new DEBUG_NEW
 #endif
 
-#define V 1.0
+#define V 1.2
 
 // CDeleteHistoryDlg 对话框
 
@@ -22,6 +22,8 @@ CDeleteHistoryDlg::CDeleteHistoryDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DELETEHISTORY_DIALOG, pParent)
 	, m_FilePath(_T(""))
 	, m_LogTxt(_T(""))
+	, b_EndDate(FALSE)
+	, b_PauseBtn(FALSE)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -35,6 +37,10 @@ void CDeleteHistoryDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_BTN_START, m_BtnStartCtrl);
 	DDX_Control(pDX, IDC_PROG_RUN, m_ProgRunCtrl);
 	DDX_Control(pDX, IDC_EDIT_LOG, m_LogCtrl);
+	DDX_Control(pDX, IDC_CHECK_ENDDATE, m_CheckEndDate);
+	DDX_Check(pDX, IDC_CHECK_ENDDATE, b_EndDate);
+	DDX_Control(pDX, IDC_CHECK_PAUSE, m_CheckBtnPuaseCtrl);
+	DDX_Check(pDX, IDC_CHECK_PAUSE, b_PauseBtn);
 }
 
 BEGIN_MESSAGE_MAP(CDeleteHistoryDlg, CDialogEx)
@@ -44,6 +50,8 @@ BEGIN_MESSAGE_MAP(CDeleteHistoryDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BTN_START, &CDeleteHistoryDlg::OnBnClickedBtnStart)
 	//ON_NOTIFY(DTN_DATETIMECHANGE, IDC_DATE_END, &CDeleteHistoryDlg::OnDtnDatetimechangeDateEnd)
 	ON_NOTIFY(DTN_CLOSEUP, IDC_DATE_END, &CDeleteHistoryDlg::OnDtnCloseupDateEnd)
+	ON_BN_CLICKED(IDC_CHECK_ENDDATE, &CDeleteHistoryDlg::OnBnClickedCheckEnddate)
+	ON_BN_CLICKED(IDC_CHECK_PAUSE, &CDeleteHistoryDlg::OnBnClickedCheckPause)
 END_MESSAGE_MAP()
 
 
@@ -63,6 +71,12 @@ BOOL CDeleteHistoryDlg::OnInitDialog()
 	
 	// TODO: 在此添加额外的初始化代码
 	m_BtnStartCtrl.EnableWindow(FALSE);
+	b_EndDate = FALSE;
+	m_CheckEndDate.SetWindowText(_T("创建"));
+	m_CheckBtnPuaseCtrl.EnableWindow(FALSE);
+	b_PauseBtn = FALSE;
+	m_CheckBtnPuaseCtrl.SetWindowText(_T("等待中"));
+
 	UpdateData(FALSE);
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -113,46 +127,29 @@ std::string CDeleteHistoryDlg::CStringToString(CString _inPath)
 	return buff;
 }
 
-void CDeleteHistoryDlg::OutputLog(CString _log, bool _flag)
+void CDeleteHistoryDlg::OutputLog(CString _log)
 {
 	UpdateData();
+	int n = m_LogCtrl.GetLineCount();
+	if (n > 30)
+	{
+		m_LogCtrl.SetSel(0, -1);
+		m_LogCtrl.Clear();
+		m_LogTxt = "";
+	}
 	CString timeStr;
 	CTime tim;
-	int ln= 0;
-	if (_flag)
-	{
-		tim = CTime::GetCurrentTime(0);
-		timeStr = tim.Format("%Y-%m-%d %H:%M:%S  ");
-		m_LogTxt += timeStr;
-		m_LogTxt += _log;
-		m_LogTxt += "\r\n";
-		m_LogCtrl.SetDlgItemText(IDC_EDIT_LOG, m_LogTxt);
-		UpdateData(FALSE);
-		m_LogCtrl.LineScroll(m_LogCtrl.GetLineCount());
-	}
-	else
-	{
-		if (ln == 2)
-		{
-			int lineNum = m_LogCtrl.GetLineCount();
-			int nIndex = m_LogCtrl.LineIndex(lineNum - ln);
-			m_LogCtrl.SetSel(nIndex, -1);
-			m_LogCtrl.Clear();
-			ln = 0;
-		}
-		tim = CTime::GetCurrentTime(0);
-		timeStr = tim.Format("%Y-%m-%d %H:%M:%S  ");
-		m_LogTxt += timeStr;
-		m_LogTxt += _log;
-		m_LogTxt += "\r\n";
-		m_LogCtrl.SetDlgItemText(IDC_EDIT_LOG, m_LogTxt);
-		UpdateData(FALSE);
-		m_LogCtrl.LineScroll(m_LogCtrl.GetLineCount());
-		ln++;	
-	}
+	tim = CTime::GetCurrentTime(0);
+	timeStr = tim.Format("%Y-%m-%d %H:%M:%S  ");
+	m_LogTxt += timeStr;
+	m_LogTxt += _log;
+	m_LogTxt += "\r\n";
+	m_LogCtrl.SetDlgItemText(IDC_EDIT_LOG, _log);
+	UpdateData(FALSE);
+	m_LogCtrl.LineScroll(m_LogCtrl.GetLineCount());
 }
 
-int CDeleteHistoryDlg::GetFileNum(std::string _inPath, long long _timeInfo)
+int CDeleteHistoryDlg::GetFileNum(std::string _inPath, long _timeInfo)
 {	
 	int n = 0;				//文件计数
 	std::queue<std::string> q;
@@ -180,7 +177,16 @@ int CDeleteHistoryDlg::GetFileNum(std::string _inPath, long long _timeInfo)
 			}
 			else
 			{
-				if (fileinfo.time_write < _timeInfo)	// time_write   文件最后一次修改时间
+				long timeBuf = 0;
+				if (b_EndDate)
+				{
+					timeBuf = fileinfo.time_write;		// time_write   文件最后一次修改时间	
+				}
+				else
+				{
+					timeBuf = fileinfo.time_create;		// time_create   文件最后一次修改时间
+				}
+				if (timeBuf < _timeInfo)	
 				{
 					n++;
 				}
@@ -196,7 +202,7 @@ int CDeleteHistoryDlg::GetFileNum(std::string _inPath, long long _timeInfo)
 	return n;
 }
 
-void CDeleteHistoryDlg::DeleteFolder(std::string _inPath, long long _timeInfo)
+void CDeleteHistoryDlg::DeleteFolder(std::string _inPath, long _timeInfo)
 {
 	std::string strFilePath = _inPath + "\\*.*";
 	struct _finddata32_t fileInfo;
@@ -232,14 +238,23 @@ void CDeleteHistoryDlg::DeleteFolder(std::string _inPath, long long _timeInfo)
 				buf += err;
 				OutputLog(buf);
 				retFlag = 1;
-				continue;
+				break;
 			}
 		}
 		else
 		{
 			std::string filePath = _inPath + "\\" + fileInfo.name;
 			//判断文件最后一次修改日期时间戳 是否小于截至日期时间戳
-			if (fileInfo.time_write < _timeInfo)
+			long timeBuf = 0;
+			if (b_EndDate)
+			{
+				timeBuf = fileInfo.time_write;		// time_write   文件最后一次修改时间
+			}
+			else
+			{
+				timeBuf = fileInfo.time_create;		// time_create   文件最后一次修改时间
+			}
+			if (timeBuf < _timeInfo)
 			{
 				//	删除文件
 				int ret = remove(filePath.c_str());
@@ -252,21 +267,22 @@ void CDeleteHistoryDlg::DeleteFolder(std::string _inPath, long long _timeInfo)
 					buf += err;
 					OutputLog(buf);
 					retFlag = 1;
-					continue;
+					break;
 				}
 				delNum++;
 				m_ProgRunCtrl.SetPos(delNum);
-				if (delNum % 100 == 0)
+				//Sleep(1000);
+				/*if (delNum % 100 == 0)
 				{
 					CString buff;
 					buff.Format(_T("清理进行中…… 已清理 %d ，剩余 %d 。"), delNum, fileNum - delNum);
-					OutputLog(buff, 0);
-				}
+					OutputLog(buff);
+				}*/
 			}
 			else
 			{
-				continue;			//跳出本次循环，继续下一次循环，遍历其余文件
-				//break;		//跳出循环，不再遍历后续文件，截止到当前文件，后续不再判断
+				//continue;			//跳出本次循环，继续下一次循环，遍历其余文件
+				break;		//跳出循环，不再遍历后续文件，截止到当前文件，后续不再判断
 			}
 		}
 	} while (!_findnext32(handle, &fileInfo));
@@ -288,7 +304,7 @@ DWORD __stdcall CDeleteHistoryDlg::StartFunc(void* arg)
 		dlg->OutputLog(_T("历史文件清理完成！"));
 		break;
 	case 1:
-		dlg->OutputLog(_T("部分文件或目录未删除，请检查错误代码！(搜errno 常量如：13=无权限，2=无此目录或文件……)"));
+		dlg->OutputLog(_T("部分文件或目录未删除，请检查相应错误代码！"));		//(搜errno 常量如：13=无权限，2=无此目录或文件……)
 		break;
 	default:
 		break;
@@ -298,7 +314,33 @@ DWORD __stdcall CDeleteHistoryDlg::StartFunc(void* arg)
 	return 0;
 }
 
-
+UINT __cdecl CDeleteHistoryDlg::AfxStartFunc(void* arg)
+{
+	CDeleteHistoryDlg* dlg = (CDeleteHistoryDlg*)arg;
+	dlg->DeleteFolder(dlg->strPath, dlg->dTime);
+	CString buff;
+	buff.Format(_T("清理结束，已清理 %d ，剩余 %d 。"), dlg->delNum, dlg->fileNum - dlg->delNum);
+	dlg->OutputLog(buff);
+	dlg->m_CheckBtnPuaseCtrl.EnableWindow(FALSE);
+	dlg->m_CheckBtnPuaseCtrl.SetWindowText(_T("已终止"));
+	switch (dlg->retFlag)
+	{
+	case -1:
+		dlg->OutputLog(_T("文件查找失败！请检查错误代码！"));
+	case 0:
+		dlg->OutputLog(_T("指定文件已清理！"));
+		break;
+	case 1:
+		dlg->OutputLog(_T("部分文件或目录未删除，请检查相应错误代码！"));		//(搜errno 常量如：13=无权限，2=无此目录或文件……)
+		break;
+	default:
+		break;
+	}
+	Sleep(100);
+	dlg->OutputLog(_T("---------- 任务完成！----------"));
+	dlg->OutputLog(_T("如有其他任务，请点击 “打开” 按钮选择目录！如任务结束，请点击 “退出” 按钮！"));
+	return 0;
+}
 
 void CDeleteHistoryDlg::OnBnClickedBtnOpenfile()
 {
@@ -319,7 +361,8 @@ void CDeleteHistoryDlg::OnBnClickedBtnOpenfile()
 	{
 		if (SHGetPathFromIDList(pItemIDList, szPath))
 		{
-			m_FilePath = szPath;	
+			CString	buff = szPath;
+			m_FilePath = buff /*+_T("\\Data\\his\\1")*/;
 			UpdateData(FALSE);
 			strPath = CStringToString(m_FilePath);
 			CString buf;
@@ -340,6 +383,15 @@ void CDeleteHistoryDlg::OnBnClickedBtnOpenfile()
 		m_BtnStartCtrl.EnableWindow(TRUE);
 		UpdateData(FALSE);
 	}
+	//获取日期控件显示的时间
+	m_DateEndCtrl.GetTime(timeStop);
+	//将日期时间转换为时间戳
+	dTime = (long long)timeStop.GetTime();
+	CString buf{};
+	CString strTime = timeStop.Format("%Y-%m-%d");
+	fileNum = GetFileNum(strPath, dTime);
+	buf.Format(_T("检索到 %d 个符合要求的文件！"), fileNum);
+	OutputLog(buf);
 }
 
 void CDeleteHistoryDlg::OnBnClickedBtnStart()
@@ -373,12 +425,15 @@ void CDeleteHistoryDlg::OnBnClickedBtnStart()
 		}
 		m_ProgRunCtrl.SetRange(0, fileNum);
 		m_ProgRunCtrl.SetPos(1);
-		DWORD ThreadID;
-		HANDLE handle = CreateThread(NULL, 0, StartFunc, this, 0, &ThreadID);
-		if (handle)
+		//DWORD ThreadID;
+		//HANDLE handle = CreateThread(NULL, 0, StartFunc, this, 0, &ThreadID);
+		m_pThread = AfxBeginThread(AfxStartFunc, this);
+		m_CheckBtnPuaseCtrl.EnableWindow(TRUE);
+		m_CheckBtnPuaseCtrl.SetWindowText(_T("暂停"));
+/*		if (handle)
 		{
 			CloseHandle(handle);
-		}	
+		}*/	
 	}
 }
 
@@ -412,4 +467,38 @@ void CDeleteHistoryDlg::OnDtnCloseupDateEnd(NMHDR* pNMHDR, LRESULT* pResult)
 	fileNum = GetFileNum(strPath, dTime);
 	buf.Format(_T("检索到 %d 个符合要求的文件！"), fileNum);
 	OutputLog(buf);
+}
+
+void CDeleteHistoryDlg::OnBnClickedCheckEnddate()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	if (b_EndDate)
+	{
+		b_EndDate = FALSE;
+		m_CheckEndDate.SetWindowText(_T("创建"));
+	}
+	else
+	{
+		b_EndDate = TRUE;
+		m_CheckEndDate.SetWindowText(_T("修改"));
+	}
+}
+
+void CDeleteHistoryDlg::OnBnClickedCheckPause()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	if (!b_PauseBtn)
+	{
+		b_PauseBtn = TRUE;
+		SuspendThread(m_pThread->m_hThread);		//挂起（暂停）工作线程
+		m_CheckBtnPuaseCtrl.SetWindowText(_T("继续"));
+		OutputLog(_T("清理线程已暂停运行！如需恢复，请点击 “继续” 按钮！"));
+	}
+	else
+	{
+		b_PauseBtn = FALSE;
+		ResumeThread(m_pThread->m_hThread);		//恢复（继续）工作线程
+		m_CheckBtnPuaseCtrl.SetWindowText(_T("暂停"));
+		OutputLog(_T("清理线程已恢复运行！如需暂停，请点击 “暂停” 按钮！"));
+	}
 }
