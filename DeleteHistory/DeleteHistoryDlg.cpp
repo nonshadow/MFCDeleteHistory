@@ -48,7 +48,6 @@ BEGIN_MESSAGE_MAP(CDeleteHistoryDlg, CDialogEx)
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_BTN_OPENFILE, &CDeleteHistoryDlg::OnBnClickedBtnOpenfile)
 	ON_BN_CLICKED(IDC_BTN_START, &CDeleteHistoryDlg::OnBnClickedBtnStart)
-	//ON_NOTIFY(DTN_DATETIMECHANGE, IDC_DATE_END, &CDeleteHistoryDlg::OnDtnDatetimechangeDateEnd)
 	ON_NOTIFY(DTN_CLOSEUP, IDC_DATE_END, &CDeleteHistoryDlg::OnDtnCloseupDateEnd)
 	ON_BN_CLICKED(IDC_CHECK_ENDDATE, &CDeleteHistoryDlg::OnBnClickedCheckEnddate)
 	ON_BN_CLICKED(IDC_CHECK_PAUSE, &CDeleteHistoryDlg::OnBnClickedCheckPause)
@@ -289,31 +288,6 @@ void CDeleteHistoryDlg::DeleteFolder(std::string _inPath, long _timeInfo)
 	_findclose(handle);
 }
 
-DWORD __stdcall CDeleteHistoryDlg::StartFunc(void* arg)
-{
-	CDeleteHistoryDlg* dlg = (CDeleteHistoryDlg*)arg;
-	dlg->DeleteFolder(dlg->strPath, dlg->dTime);
-	CString buff;
-	buff.Format(_T("清理结束，已清理 %d ，剩余 %d 。"), dlg->delNum, dlg->fileNum - dlg->delNum);
-	dlg->OutputLog(buff);
-	switch (dlg->retFlag)
-	{
-	case -1:
-		dlg->OutputLog(_T("文件查找失败！请检查错误代码！"));
-	case 0:
-		dlg->OutputLog(_T("历史文件清理完成！"));
-		break;
-	case 1:
-		dlg->OutputLog(_T("部分文件或目录未删除，请检查相应错误代码！"));		//(搜errno 常量如：13=无权限，2=无此目录或文件……)
-		break;
-	default:
-		break;
-	}
-	Sleep(100);
-	dlg->OutputLog(_T("---------- 清理完成！请点击退出按钮退出程序！ ----------"));
-	return 0;
-}
-
 UINT __cdecl CDeleteHistoryDlg::AfxStartFunc(void* arg)
 {
 	CDeleteHistoryDlg* dlg = (CDeleteHistoryDlg*)arg;
@@ -425,34 +399,11 @@ void CDeleteHistoryDlg::OnBnClickedBtnStart()
 		}
 		m_ProgRunCtrl.SetRange(0, fileNum);
 		m_ProgRunCtrl.SetPos(1);
-		//DWORD ThreadID;
-		//HANDLE handle = CreateThread(NULL, 0, StartFunc, this, 0, &ThreadID);
 		m_pThread = AfxBeginThread(AfxStartFunc, this);
 		m_CheckBtnPuaseCtrl.EnableWindow(TRUE);
 		m_CheckBtnPuaseCtrl.SetWindowText(_T("暂停"));
-/*		if (handle)
-		{
-			CloseHandle(handle);
-		}*/	
 	}
 }
-
-//void CDeleteHistoryDlg::OnDtnDatetimechangeDateEnd(NMHDR* pNMHDR, LRESULT* pResult)
-//{
-//	LPNMDATETIMECHANGE pDTChange = reinterpret_cast<LPNMDATETIMECHANGE>(pNMHDR);
-//	// TODO: 在此添加控件通知处理程序代码
-//	*pResult = 0;
-//	//获取日期控件显示的时间
-//	m_DateEndCtrl.GetTime(timeStop);
-//	//将日期时间转换为时间戳
-//	dTime = (long long)timeStop.GetTime();
-//	CString buf{};
-//	CString strTime = timeStop.Format("%Y-%m-%d");
-//	fileNum = GetFileNum(strPath, dTime);
-//	CString csn;
-//	csn.Format(_T("检索到 %d 个符合要求的文件。"), fileNum);
-//	OutputLog(csn);
-//}
 
 void CDeleteHistoryDlg::OnDtnCloseupDateEnd(NMHDR* pNMHDR, LRESULT* pResult)
 {

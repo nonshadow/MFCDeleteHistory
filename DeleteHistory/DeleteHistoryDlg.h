@@ -64,12 +64,10 @@ public:
 	void DeleteFolder(std::string _inPath, long _timeInfo);
 	
 	// 静态线程函数
-	static DWORD WINAPI StartFunc(void* arg);
 	static UINT __cdecl AfxStartFunc(void* arg);
 	// 生成的消息映射函数
 	afx_msg void OnBnClickedBtnOpenfile();
 	afx_msg void OnBnClickedBtnStart();
-	//afx_msg void OnDtnDatetimechangeDateEnd(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnDtnCloseupDateEnd(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnBnClickedCheckEnddate();
 	
